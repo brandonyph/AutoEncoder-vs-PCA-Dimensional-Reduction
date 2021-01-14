@@ -1,0 +1,143 @@
+##https://www.r-bloggers.com/2018/07/pca-vs-autoencoders-for-dimensionality-reduction/
+  
+library(DAAG)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+head(ais)
+
+ais <- ais 
+# standardise
+minmax <- function(x) (x - min(x))/(max(x) - min(x))
+x_train <- apply(ais[,1:11], 2, minmax)
+# PCA
+pca <- prcomp(x_train)
+# plot cumulative plot
+qplot(x = 1:11, y = cumsum(pca$sdev)/sum(pca$sdev), geom = "line")
+
+ggplot(as.data.frame(pca$x), aes(x = PC1, y = PC2, col = ais$sex)) + geom_point()
+
+pca_plotly <- plot_ly(as.data.frame(pca$x), x = ~PC1, y = ~PC2, z = ~PC3, color = ~ais$sex) %>% add_markers()
+pca_plotly
+
+
+###
+
+# autoencoder in keras
+library(keras)
+# set training data
+x_train <- as.matrix(x_train)
+# set model
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 6, activation = "tanh", input_shape = ncol(x_train)) %>%
+  layer_dense(units = 2, activation = "tanh", name = "bottleneck") %>%
+  layer_dense(units = 6, activation = "tanh") %>%
+  layer_dense(units = ncol(x_train))
+# view model layers
+summary(model)
+
+###########
+
+# compile model
+model %>% compile(
+  loss = "mean_squared_error", 
+  optimizer = "adam"
+)
+# fit model
+model %>% fit(
+  x = x_train, 
+  y = x_train, 
+  epochs = 2000,
+  verbose = 0,
+  batchsize = 1
+)
+# evaluate the performance of the model
+mse.ae2 <- evaluate(model, x_train, x_train)
+mse.ae2
+
+
+# extract the bottleneck layer
+intermediate_layer_model <- keras_model(inputs = model$input, outputs = get_layer(model, "bottleneck")$output)
+intermediate_output <- predict(intermediate_layer_model, x_train)
+
+ggplot(data.frame(PC1 = intermediate_output[,1], PC2 = intermediate_output[,2]), aes(x = PC1, y = PC2, col = ais$sex)) + geom_point()
+
+###
+model3 <- keras_model_sequential()
+model3 %>%
+  layer_dense(units = 6, activation = "tanh", input_shape = ncol(x_train)) %>%
+  layer_dense(units = 3, activation = "tanh", name = "bottleneck") %>%
+  layer_dense(units = 6, activation = "tanh") %>%
+  layer_dense(units = ncol(x_train))
+# summar of model
+summary(model3)
+
+
+# compile model
+model3 %>% compile(
+  loss = "mean_squared_error", 
+  optimizer = "adam"
+)
+# fit model
+model3 %>% fit(
+  x = x_train, 
+  y = x_train, 
+  epochs = 2000,
+  verbose = 0,
+  batchsize = 1
+)
+# evaluate the model
+evaluate(model3, x_train, x_train)
+
+# exgtract the bottleneck layer
+intermediate_layer_model <- keras_model(inputs = model3$input, outputs = get_layer(model3, "bottleneck")$output)
+intermediate_output <- predict(intermediate_layer_model, x_train)
+# plot the reduced dat set
+aedf3 <- data.frame(node1 = intermediate_output[,1], node2 = intermediate_output[,2], node3 = intermediate_output[,3])
+ae_plotly <- plot_ly(aedf3, x = ~node1, y = ~node2, z = ~node3, color = ~ais$sex) %>% add_markers()
+ae_plotly 
+
+
+##
+
+# pCA reconstruction
+pca.recon <- function(pca, x, k){
+  mu <- matrix(rep(pca$center, nrow(pca$x)), nrow = nrow(pca$x), byrow = T)
+  recon <- pca$x[,1:k] %*% t(pca$rotation[,1:k]) + mu
+  mse <- mean((recon - x)^2)
+  return(list(x = recon, mse = mse))
+}
+xhat <- rep(NA, 10)
+for(k in 1:10){
+  xhat[k] <- pca.recon(pca, x_train, k)$mse
+}
+ae.mse <- rep(NA, 5)
+for(k in 1:10){
+  modelk <- keras_model_sequential()
+  modelk %>%
+    layer_dense(units = 6, activation = "tanh", input_shape = ncol(x_train)) %>%
+    layer_dense(units = k, activation = "tanh", name = "bottleneck") %>%
+    layer_dense(units = 6, activation = "tanh") %>%
+    layer_dense(units = ncol(x_train))
+  modelk %>% compile(
+    loss = "mean_squared_error", 
+    optimizer = "adam"
+  )
+  modelk %>% fit(
+    x = x_train, 
+    y = x_train, 
+    epochs = 1000,
+    verbose = 0,
+    batch_size = 1
+  )
+  ae.mse[k] <- unname(evaluate(modelk, x_train, x_train))
+}
+df <- data.frame(k = c(1:10, 1:10), mse = c(xhat, ae.mse), method = c(rep("pca", 10), rep("autoencoder", 5)))
+ggplot(df, aes(x = k, y = mse, col = method)) + geom_line()
+
+
+##More
+#https://bradleyboehmke.github.io/HOML/autoencoders.html
+#https://link.springer.com/article/10.1186/s12859-019-3179-5
+
