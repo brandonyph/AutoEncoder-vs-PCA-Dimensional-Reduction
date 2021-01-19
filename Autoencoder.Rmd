@@ -1,7 +1,9 @@
 ---
 title: "Autoencoder for Dimensional Reduction vs PCA"
 author: "Brandon Yeo"
-output: github_document
+output:
+  md_document:
+    variant: markdown_github
 ---
 #Script Adapted from : https://www.r-bloggers.com/2018/07/pca-vs-autoencoders-for-dimensionality-reduction/
 
@@ -35,8 +37,8 @@ qplot(x = 1:11, y = cumsum(pca$sdev)/sum(pca$sdev), geom = "line")
 ggplot(as.data.frame(pca$x), aes(x = PC1, y = PC2, col = ais$sex)) + geom_point()
 
 # plot PCA in 3 dimension
-pca_plotly <- plot_ly(as.data.frame(pca$x), x = ~PC1, y = ~PC2, z = ~PC3, color = ~ais$sex) %>% add_markers()
-pca_plotly
+#pca_plotly <- plot_ly(as.data.frame(pca$x), x = ~PC1, y = ~PC2, z = ~PC3, color = ~ais$sex) %>% add_markers()
+#pca_plotly
 ```
 
 ```{r}
@@ -120,13 +122,13 @@ intermediate_output <- predict(intermediate_layer_model, x_train)
 # plot the reduced dat set
 aedf3 <- data.frame(node1 = intermediate_output[,1], node2 = intermediate_output[,2], node3 = intermediate_output[,3])
 
-ae_plotly <- plot_ly(aedf3, x = ~node1, y = ~node2, z = ~node3, color = ~ais$sex) %>% add_markers()
-ae_plotly 
+#ae_plotly <- plot_ly(aedf3, x = ~node1, y = ~node2, z = ~node3, color = ~ais$sex) %>% add_markers()
+#ae_plotly 
 ```
 
 #Comparison of Performance between PCA and Autodecoder
 
-```{r}
+```{r echo=FALSE}
 # PCA reconstruction
 pca.recon <- function(pca, x, k){
   mu <- matrix(rep(pca$center, nrow(pca$x)), nrow = nrow(pca$x), byrow = T)
@@ -139,7 +141,7 @@ for(k in 1:10){
   xhat[k] <- pca.recon(pca, x_train, k)$mse
 }
 ae.mse <- rep(NA, 5)
-for(k in 1:10){
+for(k in 1:5){
   modelk <- keras_model_sequential()
   modelk %>%
     layer_dense(units = 6, activation = "tanh", input_shape = ncol(x_train)) %>%
@@ -153,14 +155,14 @@ for(k in 1:10){
   modelk %>% fit(
     x = x_train, 
     y = x_train, 
-    epochs = 1000,
+    epochs = 10,
     verbose = 0,
     batch_size = 1,
     
   )
   ae.mse[k] <- unname(evaluate(modelk, x_train, x_train))
 }
-df <- data.frame(k = c(1:10, 1:10), mse = c(xhat, ae.mse), method = c(rep("pca", 10), rep("autoencoder", 5)))
+df <- data.frame(k = c(1:10, 1:5), mse = c(xhat, ae.mse), method = c(rep("pca", 10), rep("autoencoder", 5)))
 ggplot(df, aes(x = k, y = mse, col = method)) + geom_line()
 
 ```
