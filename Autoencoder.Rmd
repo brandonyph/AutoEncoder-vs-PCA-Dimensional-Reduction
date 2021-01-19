@@ -3,12 +3,12 @@ title: "Autoencoder for Dimensional Reduction vs PCA"
 author: "Brandon Yeo"
 output:
   md_document:
-    variant: markdown_github
+    variant: gfm
 ---
 #Script Adapted from : https://www.r-bloggers.com/2018/07/pca-vs-autoencoders-for-dimensionality-reduction/
 
-#Importing Required Library
-```{r include=FALSE}
+#Importing Required Libraries
+```{r}
 library(DAAG)
 library(ggplot2)
 library(dplyr)
@@ -69,7 +69,7 @@ model %>% fit(
   x = x_train, 
   y = x_train, 
   verbose = 0,
-  epochs = 100,
+  epochs = 1000,
   batch_size = 2
 )
 # evaluate the performance of the model
@@ -128,7 +128,7 @@ aedf3 <- data.frame(node1 = intermediate_output[,1], node2 = intermediate_output
 
 #Comparison of Performance between PCA and Autodecoder
 
-```{r echo=FALSE}
+```{r}
 # PCA reconstruction
 pca.recon <- function(pca, x, k){
   mu <- matrix(rep(pca$center, nrow(pca$x)), nrow = nrow(pca$x), byrow = T)
@@ -155,7 +155,7 @@ for(k in 1:5){
   modelk %>% fit(
     x = x_train, 
     y = x_train, 
-    epochs = 10,
+    epochs = 1000,
     verbose = 0,
     batch_size = 1,
     

@@ -4,6 +4,54 @@
 \#Importing Required Library
 
 ``` r
+library(DAAG)
+```
+
+    ## Loading required package: lattice
+
+``` r
+library(ggplot2)
+library(dplyr)
+```
+
+    ## 
+    ## Attaching package: 'dplyr'
+
+    ## The following objects are masked from 'package:stats':
+    ## 
+    ##     filter, lag
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     intersect, setdiff, setequal, union
+
+``` r
+library(plotly)
+```
+
+    ## 
+    ## Attaching package: 'plotly'
+
+    ## The following object is masked from 'package:ggplot2':
+    ## 
+    ##     last_plot
+
+    ## The following object is masked from 'package:stats':
+    ## 
+    ##     filter
+
+    ## The following object is masked from 'package:graphics':
+    ## 
+    ##     layout
+
+``` r
+library(FactoMineR)
+library(factoextra)
+```
+
+    ## Welcome! Want to learn more? See two factoextra-related books at https://goo.gl/ve3WBa
+
+``` r
 #Define Dataset 
 ais <- ais 
 head(ais)
@@ -29,20 +77,20 @@ pca <- prcomp(x_train)
 fviz_screeplot(pca, ncp=10)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-2-1.png)
+![](Autoencoder_files/figure-markdown_github/unnamed-chunk-2-1.png)
 
 ``` r
 # plot cumulative plot
 qplot(x = 1:11, y = cumsum(pca$sdev)/sum(pca$sdev), geom = "line")
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-2-2.png)
+![](Autoencoder_files/figure-markdown_github/unnamed-chunk-2-2.png)
 
 ``` r
 ggplot(as.data.frame(pca$x), aes(x = PC1, y = PC2, col = ais$sex)) + geom_point()
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-2-3.png)
+![](Autoencoder_files/figure-markdown_github/unnamed-chunk-2-3.png)
 
 ``` r
 # plot PCA in 3 dimension
@@ -94,7 +142,7 @@ model %>% fit(
   x = x_train, 
   y = x_train, 
   verbose = 0,
-  epochs = 100,
+  epochs = 1000,
   batch_size = 2
 )
 # evaluate the performance of the model
@@ -102,8 +150,8 @@ mse.ae2 <- evaluate(model, x_train, x_train)
 mse.ae2
 ```
 
-    ##        loss 
-    ## 0.009937709
+    ##       loss 
+    ## 0.00873935
 
 ``` r
 # extract the bottleneck layer
@@ -113,7 +161,7 @@ intermediate_output <- predict(intermediate_layer_model, x_train)
 ggplot(data.frame(PC1 = intermediate_output[,1], PC2 = intermediate_output[,2]), aes(x = PC1, y = PC2, col = ais$sex)) + geom_point()
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-5-1.png)
+![](Autoencoder_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
 \#Seperate model with 3 nodes in the bottleneck layers
 
@@ -164,8 +212,8 @@ model3 %>% fit(
 evaluate(model3, x_train, x_train)
 ```
 
-    ##       loss 
-    ## 0.00636773
+    ##        loss 
+    ## 0.006353198
 
 ``` r
 # exgtract the bottleneck layer
@@ -180,4 +228,42 @@ aedf3 <- data.frame(node1 = intermediate_output[,1], node2 = intermediate_output
 
 \#Comparison of Performance between PCA and Autodecoder
 
-![](README_files/figure-markdown_github/unnamed-chunk-7-1.png)
+``` r
+# PCA reconstruction
+pca.recon <- function(pca, x, k){
+  mu <- matrix(rep(pca$center, nrow(pca$x)), nrow = nrow(pca$x), byrow = T)
+  recon <- pca$x[,1:k] %*% t(pca$rotation[,1:k]) + mu
+  mse <- mean((recon - x)^2)
+  return(list(x = recon, mse = mse))
+}
+xhat <- rep(NA, 10)
+for(k in 1:10){
+  xhat[k] <- pca.recon(pca, x_train, k)$mse
+}
+ae.mse <- rep(NA, 5)
+for(k in 1:5){
+  modelk <- keras_model_sequential()
+  modelk %>%
+    layer_dense(units = 6, activation = "tanh", input_shape = ncol(x_train)) %>%
+    layer_dense(units = k, activation = "tanh", name = "bottleneck") %>%
+    layer_dense(units = 6, activation = "tanh") %>%
+    layer_dense(units = ncol(x_train))
+  modelk %>% compile(
+    loss = "mean_squared_error", 
+    optimizer = "adam"
+  )
+  modelk %>% fit(
+    x = x_train, 
+    y = x_train, 
+    epochs = 1000,
+    verbose = 0,
+    batch_size = 1,
+    
+  )
+  ae.mse[k] <- unname(evaluate(modelk, x_train, x_train))
+}
+df <- data.frame(k = c(1:10, 1:5), mse = c(xhat, ae.mse), method = c(rep("pca", 10), rep("autoencoder", 5)))
+ggplot(df, aes(x = k, y = mse, col = method)) + geom_line()
+```
+
+![](Autoencoder_files/figure-markdown_github/unnamed-chunk-7-1.png)
