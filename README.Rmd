@@ -1,11 +1,14 @@
 ---
 title: "Autoencoder for Dimensional Reduction vs PCA"
-output: pdf
+author: "Brandon Yeo"
+output:
+  html_document:
+    df_print: paged
 ---
-
 #Script Adapted from : https://www.r-bloggers.com/2018/07/pca-vs-autoencoders-for-dimensionality-reduction/
 
-```{r}
+#Importing Required Library
+```{r include=FALSE}
 library(DAAG)
 library(ggplot2)
 library(dplyr)
@@ -65,9 +68,9 @@ model %>% compile(
 model %>% fit(
   x = x_train, 
   y = x_train, 
-  epochs = 2000,
   verbose = 0,
-  batchsize = 1
+  epochs = 100,
+  batch_size = 2
 )
 # evaluate the performance of the model
 mse.ae2 <- evaluate(model, x_train, x_train)
@@ -106,9 +109,9 @@ model3 %>% compile(
 model3 %>% fit(
   x = x_train, 
   y = x_train, 
-  epochs = 2000,
+  epochs = 1000,
   verbose = 0,
-  batchsize = 1
+  batchsize = 2
 )
 # evaluate the model
 evaluate(model3, x_train, x_train)
@@ -123,10 +126,10 @@ ae_plotly <- plot_ly(aedf3, x = ~node1, y = ~node2, z = ~node3, color = ~ais$sex
 ae_plotly 
 ```
 
-
+#Comparison of Performance between PCA and Autodecoder
 
 ```{r}
-# pCA reconstruction
+# PCA reconstruction
 pca.recon <- function(pca, x, k){
   mu <- matrix(rep(pca$center, nrow(pca$x)), nrow = nrow(pca$x), byrow = T)
   recon <- pca$x[,1:k] %*% t(pca$rotation[,1:k]) + mu
@@ -154,7 +157,8 @@ for(k in 1:10){
     y = x_train, 
     epochs = 1000,
     verbose = 0,
-    batch_size = 1
+    batch_size = 1,
+    
   )
   ae.mse[k] <- unname(evaluate(modelk, x_train, x_train))
 }
