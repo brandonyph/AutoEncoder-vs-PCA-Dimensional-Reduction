@@ -1,9 +1,7 @@
 ---
 title: "Autoencoder for Dimensional Reduction vs PCA"
 author: "Brandon Yeo"
-output:
-  html_document:
-    df_print: paged
+output: github_document
 ---
 #Script Adapted from : https://www.r-bloggers.com/2018/07/pca-vs-autoencoders-for-dimensionality-reduction/
 
